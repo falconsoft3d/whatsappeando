@@ -180,3 +180,65 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+// DELETE - Eliminar cuenta
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'ID de cuenta requerido' }, { status: 400 });
+    }
+
+    let token = request.headers.get('Authorization')?.replace('Bearer ', '');
+    if (!token) {
+      const cookieStore = await cookies();
+      token = cookieStore.get('auth-token')?.value;
+    }
+
+    if (!token) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+
+    const decoded = verifyToken(token);
+    if (!decoded) {
+      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
+    }
+
+    // Verificar que la cuenta pertenezca al usuario
+    const account = await prisma.whatsAppAccount.findFirst({
+      where: {
+        id: id,
+        userId: decoded.userId
+      }
+    });
+
+    if (!account) {
+      return NextResponse.json({ error: 'Cuenta no encontrada o no autorizada' }, { status: 404 });
+    }
+
+    // Intentar cerrar la sesión de WhatsApp si existe
+    if (account.sessionId) {
+      try {
+        const { deleteSession } = await import('@/lib/whatsapp');
+        deleteSession(account.sessionId);
+      } catch (err) {
+        console.warn('No se pudo cerrar la sesión de WhatsApp al eliminar:', err);
+      }
+    }
+
+    // Eliminar de la base de datos
+    await prisma.whatsAppAccount.delete({
+      where: { id: id }
+    });
+
+    return NextResponse.json({ success: true, message: 'Cuenta eliminada' });
+  } catch (error) {
+    console.error('Error deleting account:', error);
+    return NextResponse.json(
+      { error: 'Error al eliminar la cuenta', details: error instanceof Error ? error.message : String(error) },
+      { status: 500 }
+    );
+  }
+}

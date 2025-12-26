@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Swal from 'sweetalert2';
 
 interface Account {
   id: number;
@@ -372,9 +373,69 @@ export default function AccountsPage() {
     ));
   };
 
-  const handleDelete = (accountId: number) => {
-    if (confirm('¿Estás seguro de eliminar esta cuenta?')) {
-      setAccounts(prev => prev.filter(acc => acc.id !== accountId));
+  const handleDelete = async (accountId: number | string) => {
+    const result = await Swal.fire({
+      title: '¿Estás seguro?',
+      text: "Esta acción eliminará la cuenta y todos sus registros de forma permanente.",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+      background: document.documentElement.classList.contains('dark') ? '#1f2937' : '#fff',
+      color: document.documentElement.classList.contains('dark') ? '#fff' : '#000',
+    });
+
+    if (result.isConfirmed) {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`/api/whatsapp/accounts?id=${accountId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (res.ok) {
+          setAccounts(prev => prev.filter(acc => acc.id !== accountId));
+
+          // También limpiar de localStorage
+          const savedAccounts = localStorage.getItem('whatsappAccounts');
+          if (savedAccounts) {
+            const parsed = JSON.parse(savedAccounts);
+            localStorage.setItem('whatsappAccounts', JSON.stringify(parsed.filter((acc: any) => acc.id !== accountId)));
+          }
+
+          Swal.fire({
+            title: '¡Eliminado!',
+            text: 'La cuenta ha sido eliminada correctamente.',
+            icon: 'success',
+            timer: 2000,
+            showConfirmButton: false,
+            background: document.documentElement.classList.contains('dark') ? '#1f2937' : '#fff',
+            color: document.documentElement.classList.contains('dark') ? '#fff' : '#000',
+          });
+        } else {
+          const data = await res.json();
+          Swal.fire({
+            title: 'Error',
+            text: data.error || 'No se pudo eliminar la cuenta.',
+            icon: 'error',
+            background: document.documentElement.classList.contains('dark') ? '#1f2937' : '#fff',
+            color: document.documentElement.classList.contains('dark') ? '#fff' : '#000',
+          });
+        }
+      } catch (err) {
+        console.error('Error deleting account:', err);
+        Swal.fire({
+          title: 'Error de conexión',
+          text: 'Hubo un problema al conectar con el servidor.',
+          icon: 'error',
+          background: document.documentElement.classList.contains('dark') ? '#1f2937' : '#fff',
+          color: document.documentElement.classList.contains('dark') ? '#fff' : '#000',
+        });
+      }
     }
   };
 
@@ -584,7 +645,15 @@ export default function AccountsPage() {
                         <button
                           onClick={() => {
                             navigator.clipboard.writeText(serverError.details || '');
-                            alert('Copiado al portapapeles');
+                            Swal.fire({
+                              title: '¡Copiado!',
+                              text: 'Los detalles del error se han copiado al portapapeles.',
+                              icon: 'success',
+                              timer: 1500,
+                              showConfirmButton: false,
+                              background: document.documentElement.classList.contains('dark') ? '#1f2937' : '#fff',
+                              color: document.documentElement.classList.contains('dark') ? '#fff' : '#000',
+                            });
                           }}
                           className="absolute bottom-2 right-2 rounded bg-red-100 px-2 py-1 text-[10px] font-medium text-red-700 hover:bg-red-200 dark:bg-red-800 dark:text-red-200"
                         >

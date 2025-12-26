@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Swal from 'sweetalert2';
 
 interface Account {
   id: number;
@@ -210,7 +211,13 @@ function ChatContent() {
         setNewMessage('');
       } else {
         const errorData = await response.json();
-        alert('Error al enviar: ' + (errorData.error || 'Desconocido'));
+        Swal.fire({
+          title: 'Error al enviar',
+          text: errorData.error || 'Desconocido',
+          icon: 'error',
+          background: document.documentElement.classList.contains('dark') ? '#1f2937' : '#fff',
+          color: document.documentElement.classList.contains('dark') ? '#fff' : '#000',
+        });
       }
     } catch (error) {
       console.error('Error sending message:', error);

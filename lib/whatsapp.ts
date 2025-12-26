@@ -13,7 +13,23 @@ import QRCode from 'qrcode';
 import { Boom } from '@hapi/boom';
 import pino from 'pino';
 import path from 'path';
+import fs from 'fs';
+import os from 'os';
 import { prisma } from './prisma';
+
+// Ruta para guardar las sesiones (usar /tmp en producción/Vercel)
+const BASE_AUTH_DIR = process.env.NODE_ENV === 'production'
+  ? path.join(os.tmpdir(), 'auth_sessions')
+  : path.join(process.cwd(), 'auth_sessions');
+
+// Asegurar que el directorio base existe
+if (!fs.existsSync(BASE_AUTH_DIR)) {
+  try {
+    fs.mkdirSync(BASE_AUTH_DIR, { recursive: true });
+  } catch (err) {
+    console.error('Error creating BASE_AUTH_DIR:', err);
+  }
+}
 
 // Implementación local de makeInMemoryStore para Baileys v7
 function makeInMemoryStore(config: { logger?: any }) {
@@ -180,7 +196,7 @@ export async function generateQR(sessionId: string): Promise<string> {
       const store = makeInMemoryStore({ logger: pino({ level: 'silent' }) });
 
       // Ruta absoluta para auth_sessions
-      const authDir = path.join(process.cwd(), 'auth_sessions', sessionId);
+      const authDir = path.join(BASE_AUTH_DIR, sessionId);
       const { state, saveCreds } = await useMultiFileAuthState(authDir);
 
       const sock = makeWASocket({
@@ -400,6 +416,20 @@ export function disconnectSession(sessionId: string): void {
     session.socket.end(undefined);
   }
   sessions.delete(sessionId);
+}
+
+// Eliminar sesión completa (memoria + disco)
+export function deleteSession(sessionId: string): void {
+  disconnectSession(sessionId);
+  try {
+    const authDir = path.join(BASE_AUTH_DIR, sessionId);
+    if (fs.existsSync(authDir)) {
+      fs.rmSync(authDir, { recursive: true, force: true });
+      console.log('🗑️ Directorio de sesión eliminado:', authDir);
+    }
+  } catch (err) {
+    console.error('❌ Error al eliminar directorio de sesión:', err);
+  }
 }
 
 export async function reconnectSession(sessionId: string): Promise<void> {
