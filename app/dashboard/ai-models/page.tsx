@@ -17,6 +17,8 @@ interface AIConfig {
     ollamaUrl: string;
     ollamaModel: string;
     systemPrompt: string;
+    respondToNewContacts: boolean;
+    respondToExistingContacts: boolean;
 }
 
 export default function AIModelsPage() {
@@ -32,6 +34,8 @@ export default function AIModelsPage() {
         ollamaUrl: 'http://localhost:11434',
         ollamaModel: 'llama2',
         systemPrompt: 'Eres un asistente útil que responde por WhatsApp.',
+        respondToNewContacts: true,
+        respondToExistingContacts: true,
     });
 
     const [ollamaModels, setOllamaModels] = useState<string[]>([]);
@@ -87,6 +91,8 @@ export default function AIModelsPage() {
                         ollamaUrl: data.config.ollamaUrl || 'http://localhost:11434',
                         ollamaModel: data.config.ollamaModel || 'llama2',
                         systemPrompt: data.config.systemPrompt || 'Eres un asistente útil que responde por WhatsApp.',
+                        respondToNewContacts: data.config.respondToNewContacts ?? true,
+                        respondToExistingContacts: data.config.respondToExistingContacts ?? true,
                     });
                 } else {
                     // Reset to default if no config found
@@ -98,6 +104,8 @@ export default function AIModelsPage() {
                         ollamaUrl: 'http://localhost:11434',
                         ollamaModel: 'llama2',
                         systemPrompt: 'Eres un asistente útil que responde por WhatsApp.',
+                        respondToNewContacts: true,
+                        respondToExistingContacts: true,
                     });
                 }
             }
@@ -386,6 +394,50 @@ export default function AIModelsPage() {
                                     <div className="mt-3 flex items-start gap-2 px-1">
                                         <span className="text-blue-500 text-lg">💡</span>
                                         <p className="text-[10px] text-gray-400 font-medium italic">Describe detalladamente quién es el bot, qué sabe hacer y cuál es su tono de voz. Esto define radicalmente la calidad de las respuestas.</p>
+                                    </div>
+                                </div>
+
+                                {/* Filtros de Contactos */}
+                                <div className="pt-6 border-t border-gray-100 dark:border-gray-700">
+                                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4 ml-1">Filtros de Contactos</label>
+                                    <div className="space-y-3">
+                                        <label className="flex items-center gap-3 p-4 rounded-xl bg-gray-50/50 dark:bg-gray-900/50 border-2 border-gray-100 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-800 transition-all cursor-pointer group">
+                                            <input
+                                                type="checkbox"
+                                                checked={config.respondToNewContacts}
+                                                onChange={(e) => setConfig({ ...config, respondToNewContacts: e.target.checked })}
+                                                className="h-5 w-5 rounded-md text-blue-600 focus:ring-2 focus:ring-blue-500 border-gray-300 dark:border-gray-600 cursor-pointer"
+                                            />
+                                            <div className="flex-1">
+                                                <div className="text-sm font-bold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                                                    ✨ Responder a contactos nuevos
+                                                </div>
+                                                <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                                    La IA responderá automáticamente a personas que te escriben por primera vez
+                                                </div>
+                                            </div>
+                                        </label>
+
+                                        <label className="flex items-center gap-3 p-4 rounded-xl bg-gray-50/50 dark:bg-gray-900/50 border-2 border-gray-100 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-800 transition-all cursor-pointer group">
+                                            <input
+                                                type="checkbox"
+                                                checked={config.respondToExistingContacts}
+                                                onChange={(e) => setConfig({ ...config, respondToExistingContacts: e.target.checked })}
+                                                className="h-5 w-5 rounded-md text-blue-600 focus:ring-2 focus:ring-blue-500 border-gray-300 dark:border-gray-600 cursor-pointer"
+                                            />
+                                            <div className="flex-1">
+                                                <div className="text-sm font-bold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                                                    📇 Responder a contactos antiguos
+                                                </div>
+                                                <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                                    La IA responderá a personas que ya te han escrito anteriormente
+                                                </div>
+                                            </div>
+                                        </label>
+                                    </div>
+                                    <div className="mt-3 flex items-start gap-2 px-1">
+                                        <span className="text-amber-500 text-lg">⚠️</span>
+                                        <p className="text-[10px] text-gray-400 font-medium italic">Si desactivas ambas opciones, la IA no responderá a ningún contacto. Usa la lista negra en "Contactos" para bloquear personas específicas.</p>
                                     </div>
                                 </div>
                             </div>

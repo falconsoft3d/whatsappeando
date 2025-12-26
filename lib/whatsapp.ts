@@ -175,6 +175,11 @@ const MAX_RETRY_COUNT = 3;
 // Log al inicializar el módulo
 console.log('🚀 Módulo whatsapp.ts inicializado. Sesiones:', sessions.size);
 
+// Export para diagnóstico
+export function getSessions() {
+  return sessions;
+}
+
 export async function generateQR(sessionId: string): Promise<string> {
   return new Promise(async (resolve, reject) => {
     try {
@@ -229,13 +234,22 @@ export async function generateQR(sessionId: string): Promise<string> {
       sock.ev.on('messages.upsert', async ({ messages, type }) => {
         if (type === 'notify') {
           for (const message of messages) {
+            // Extraer el texto de forma más robusta
+            const text = message.message?.conversation ||
+              message.message?.extendedTextMessage?.text ||
+              message.message?.imageMessage?.caption ||
+              message.message?.videoMessage?.caption ||
+              message.message?.buttonsResponseMessage?.selectedDisplayText ||
+              message.message?.templateButtonReplyMessage?.selectedId ||
+              message.message?.listResponseMessage?.title ||
+              (message.message?.conversation ? message.message.conversation : '') ||
+              '';
+
             const formattedMessage = {
               id: message.key.id,
               from: message.key.remoteJid,
               fromMe: message.key.fromMe,
-              text: message.message?.conversation ||
-                message.message?.extendedTextMessage?.text ||
-                '[Media]',
+              text: text || (message.message ? '[Media]' : '[Mensaje sin texto]'),
               timestamp: message.messageTimestamp,
               pushName: message.pushName
             };
@@ -524,13 +538,22 @@ export async function reconnectSession(sessionId: string): Promise<void> {
     sock.ev.on('messages.upsert', async ({ messages, type }) => {
       if (type === 'notify') {
         for (const message of messages) {
+          // Extraer el texto de forma más robusta
+          const text = message.message?.conversation ||
+            message.message?.extendedTextMessage?.text ||
+            message.message?.imageMessage?.caption ||
+            message.message?.videoMessage?.caption ||
+            message.message?.buttonsResponseMessage?.selectedDisplayText ||
+            message.message?.templateButtonReplyMessage?.selectedId ||
+            message.message?.listResponseMessage?.title ||
+            (message.message?.conversation ? message.message.conversation : '') ||
+            '';
+
           const formattedMessage = {
             id: message.key.id,
             from: message.key.remoteJid,
             fromMe: message.key.fromMe,
-            text: message.message?.conversation ||
-              message.message?.extendedTextMessage?.text ||
-              '[Media]',
+            text: text || (message.message ? '[Media]' : '[Mensaje sin texto]'),
             timestamp: message.messageTimestamp,
             pushName: message.pushName
           };
@@ -739,7 +762,24 @@ export async function sendMessage(
       await session.socket.sendMessage(jid, content);
     } else {
       if (!message) throw new Error('Debe proporcionar un mensaje o un archivo adjunto');
-      await session.socket.sendMessage(jid, { text: message });
+      // Define content for text messages
+      const content = { text: message };
+      await session.socket.sendMessage(jid, content);
+    }
+
+    // PERSISTENCIA DE MENSAJES ENVIADOS (para memoria)
+    try {
+      const accountId = sessionId.split('-').slice(0, 5).join('-');
+      await prisma.chatMessage.create({
+        data: {
+          role: 'assistant',
+          content: message || '[Media]',
+          from: jid,
+          accountId: accountId
+        }
+      });
+    } catch (e) {
+      console.error('Error saving sent message to history:', e);
     }
 
     console.log('✅ Mensaje enviado exitosamente');
@@ -874,9 +914,31 @@ export async function getChatMessages(
   chatId: string,
   limit: number = 50
 ): Promise<any[]> {
-  const session = await ensureSession(sessionId);
+  const accountId = sessionId.split('-').slice(0, 5).join('-');
 
   try {
+    // Intentar obtener desde la base de datos (Historial persistente)
+    const dbMessages = await prisma.chatMessage.findMany({
+      where: {
+        accountId: accountId,
+        from: chatId
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit
+    });
+
+    if (dbMessages.length > 0) {
+      return dbMessages.reverse().map((msg: any) => ({
+        id: msg.id,
+        fromMe: msg.role === 'assistant',
+        text: msg.content,
+        timestamp: Math.floor(msg.createdAt.getTime() / 1000),
+        status: 2 // read
+      }));
+    }
+
+    // Fallback al store de memoria si no hay nada en DB
+    const session = await ensureSession(sessionId);
     const messages = await session.store?.loadMessages(chatId, limit);
     if (messages) {
       return messages.map((msg: any) => ({
@@ -884,7 +946,6 @@ export async function getChatMessages(
         fromMe: msg.key.fromMe,
         text: msg.message?.conversation ||
           msg.message?.extendedTextMessage?.text ||
-          msg.message?.conversation ||
           '[Media]',
         timestamp: typeof msg.messageTimestamp === 'number' ? msg.messageTimestamp : Number(msg.messageTimestamp || 0),
         status: msg.status
@@ -936,27 +997,46 @@ async function notifyMessageHandlers(sessionId: string, message: any) {
     });
   }
 
-  // NO procesar mensajes enviados por nosotros mismos para la IA o Webhooks (opcional el webhook, pero IA sí)
-  if (message.fromMe) return;
-
   // Extraer accountId del sessionId
   const accountId = sessionId.split('-').slice(0, 5).join('-');
 
-  // --- PERSISTENCIA DE MENSAJES PARA MEMORIA ---
-  if (message.text && message.text !== '[Media]') {
+  // --- PERSISTENCIA DE MENSAJES PARA MEMORIA (Tanto enviados como recibidos) ---
+  if (message.text) {
     try {
+      // Guardar o actualizar contacto
+      await prisma.contact.upsert({
+        where: {
+          jid_accountId: {
+            jid: message.from,
+            accountId: accountId
+          }
+        },
+        update: {
+          pushName: message.pushName || undefined
+        },
+        create: {
+          jid: message.from,
+          pushName: message.pushName || null,
+          accountId: accountId
+        }
+      });
+
       await prisma.chatMessage.create({
         data: {
-          role: 'user',
+          role: message.fromMe ? 'assistant' : 'user',
           content: message.text,
           from: message.from,
           accountId: accountId
         }
       });
+      console.log(`💾 Mensaje y contacto guardados en historial (${message.fromMe ? 'Propio' : 'Externo'})`);
     } catch (e) {
-      console.error('Error saving user message to history:', e);
+      console.error('Error saving message/contact to history:', e);
     }
   }
+
+  // Si el mensaje es propio, no procesamos IA ni Webhooks (evitar bucles)
+  if (message.fromMe) return;
 
   // Si no tenemos la configuración API en la sesión, intentar buscarla en la DB
   if (session.apiEnabled === undefined) {
@@ -975,14 +1055,51 @@ async function notifyMessageHandlers(sessionId: string, message: any) {
     }
   }
 
-  // --- LÓGICA DE INTELIGENCIA ARTIFICIAL CON MEMORIA ---
+  // --- LÓGICA DE INTELIGENCIA ARTIFICIAL CON MEMORIA Y LISTA NEGRA ---
   try {
     const aiConfig = await prisma.aiConfiguration.findUnique({
       where: { accountId }
     });
 
     if (aiConfig && aiConfig.enabled && message.text && message.text !== '[Media]') {
-      console.log(`🤖 IA Activada para ${sessionId}. Proveedor: ${aiConfig.provider}`);
+      // VERIFICAR LISTA NEGRA DEL CONTACTO
+      const contact = await prisma.contact.findUnique({
+        where: {
+          jid_accountId: {
+            jid: message.from,
+            accountId: accountId
+          }
+        }
+      });
+
+      console.log(`🔍 Comprobando blacklist para ${message.from}: ${contact?.isBlacklisted ? 'BLOQUEADO' : 'LIBRE'}`);
+
+      if (contact?.isBlacklisted) {
+        console.log(`🚫 IA Omitida: El contacto ${message.from} está en LISTA NEGRA.`);
+        return;
+      }
+
+      // VERIFICAR SI ES CONTACTO NUEVO O ANTIGUO
+      const messageCount = await prisma.chatMessage.count({
+        where: {
+          from: message.from,
+          accountId: accountId
+        }
+      });
+
+      const isNewContact = messageCount <= 1; // Solo tiene el mensaje actual
+
+      if (isNewContact && !(aiConfig as any).respondToNewContacts) {
+        console.log(`🆕 IA Omitida: Contacto nuevo y respondToNewContacts está desactivado.`);
+        return;
+      }
+
+      if (!isNewContact && !(aiConfig as any).respondToExistingContacts) {
+        console.log(`📇 IA Omitida: Contacto antiguo y respondToExistingContacts está desactivado.`);
+        return;
+      }
+
+      console.log(`🤖 IA Activada para ${sessionId}. Proveedor: ${aiConfig.provider} | Contacto: ${isNewContact ? 'NUEVO' : 'ANTIGUO'}`);
 
       // Obtener historial reciente para memoria (últimos 10 mensajes)
       const history = await prisma.chatMessage.findMany({
@@ -1069,6 +1186,8 @@ async function notifyMessageHandlers(sessionId: string, message: any) {
 
         await sendMessage(sessionId, message.from, aiResponse);
       }
+    } else {
+      if (aiConfig && !aiConfig.enabled) console.log(`⏩ IA desactivada en configuración para la cuenta ${accountId}`);
     }
   } catch (aiErr) {
     console.error('Error en proceso de IA:', aiErr);

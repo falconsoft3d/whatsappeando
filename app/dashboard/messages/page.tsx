@@ -13,11 +13,12 @@ interface Account {
 }
 
 interface Message {
-  id: number;
+  id: string | number;
   to: string;
   content: string;
   timestamp: Date;
   status: 'sent' | 'failed';
+  role?: 'user' | 'assistant';
 }
 
 export default function MessagesPage() {
@@ -46,34 +47,58 @@ export default function MessagesPage() {
 
   const maskText = (text: string) => isPrivateMode ? '********' : text;
 
-  // Cargar cuentas e historial desde localStorage
+  // Cargar cuentas e historial desde la API
   useEffect(() => {
-    const savedAccounts = localStorage.getItem('whatsappAccounts');
-    if (savedAccounts) {
+    const fetchData = async () => {
       try {
-        const parsedAccounts = JSON.parse(savedAccounts);
-        const connectedAccounts = parsedAccounts.filter(
-          (acc: Account) => acc.status === 'connected' && acc.sessionId
-        );
-        setAccounts(connectedAccounts);
-
-        if (connectedAccounts.length > 0) {
-          setSelectedAccount(connectedAccounts[0]);
-          setPhoneNumber(connectedAccounts[0].phoneNumber || '');
+        // Cargar cuentas
+        const accRes = await fetch('/api/whatsapp/accounts');
+        if (accRes.ok) {
+          const accData = await accRes.json();
+          const connectedAccounts = accData.accounts.filter(
+            (acc: any) => acc.status === 'connected' && acc.sessionId
+          );
+          setAccounts(connectedAccounts);
+          if (connectedAccounts.length > 0) {
+            setSelectedAccount(connectedAccounts[0]);
+            setPhoneNumber(connectedAccounts[0].phoneNumber || '');
+          }
         }
-      } catch (error) {
-        console.error('Error loading accounts:', error);
-      }
-    }
 
-    const savedHistory = localStorage.getItem('messageHistory');
-    if (savedHistory) {
-      try {
-        setMessageHistory(JSON.parse(savedHistory));
+        // Cargar historial de mensajes persistente
+        loadMessageHistory();
       } catch (error) {
-        console.error('Error loading history:', error);
+        console.error('Error fetching dashboard data:', error);
       }
+    };
+
+    fetchData();
+  }, []);
+
+  const loadMessageHistory = async () => {
+    try {
+      const res = await fetch('/api/whatsapp/messages/history');
+      if (res.ok) {
+        const data = await res.json();
+        const formattedHistory = data.messages.map((m: any) => ({
+          id: m.id,
+          to: m.from.split('@')[0],
+          content: m.content,
+          timestamp: new Date(m.createdAt),
+          status: 'sent' as const, // For display consistency
+          role: m.role
+        }));
+        setMessageHistory(formattedHistory);
+      }
+    } catch (err) {
+      console.error('Error loading message history:', err);
     }
+  };
+
+  // Polling para nuevos mensajes e historial
+  useEffect(() => {
+    const interval = setInterval(loadMessageHistory, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   // Polling para logs de webhooks
@@ -96,13 +121,6 @@ export default function MessagesPage() {
     }
     return () => clearInterval(interval);
   }, [activeTab]);
-
-  // Guardar historial cuando cambie
-  useEffect(() => {
-    if (messageHistory.length > 0) {
-      localStorage.setItem('messageHistory', JSON.stringify(messageHistory));
-    }
-  }, [messageHistory]);
 
   const showNotification = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
@@ -285,19 +303,25 @@ export default function MessagesPage() {
                       <p className="text-center text-sm text-gray-500 py-8">No hay mensajes aún</p>
                     ) : (
                       messageHistory.map(msg => (
-                        <div key={msg.id} className={`p-4 rounded-xl border transition-all ${msg.status === 'sent'
-                          ? 'bg-green-50 border-green-100 dark:bg-green-900/20 dark:border-green-800/30'
-                          : 'bg-red-50 border-red-100 dark:bg-red-900/20 dark:border-red-800/30'
+                        <div key={msg.id} className={`p-4 rounded-xl border transition-all ${msg.role === 'user'
+                            ? 'bg-blue-50 border-blue-100 dark:bg-blue-900/10 dark:border-blue-800/20'
+                            : 'bg-green-50 border-green-100 dark:bg-green-900/20 dark:border-green-800/30'
                           }`}>
                           <div className="flex justify-between items-start mb-1">
-                            <p className="text-xs font-bold text-gray-700 dark:text-gray-200">{maskText(msg.to)}</p>
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase font-bold ${msg.status === 'sent' ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400'}`}>
-                              {msg.status}
+                            <div className="flex items-center gap-2">
+                              <span className={`w-2 h-2 rounded-full ${msg.role === 'user' ? 'bg-blue-500' : 'bg-green-500'}`}></span>
+                              <p className="text-xs font-bold text-gray-700 dark:text-gray-200">
+                                {msg.role === 'user' ? '📥 Recibido de: ' : '📤 Enviado a: '}
+                                {maskText(msg.to)}
+                              </p>
+                            </div>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase font-bold ${msg.role === 'user' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
+                              {msg.role === 'user' ? 'RECIBIDO' : 'ENVIADO'}
                             </span>
                           </div>
-                          <p className="text-sm text-gray-800 dark:text-gray-300 break-words">{msg.content}</p>
+                          <p className="text-sm text-gray-800 dark:text-gray-300 break-words mt-1">{msg.content}</p>
                           <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-2">
-                            {new Date(msg.timestamp).toLocaleTimeString()}
+                            {new Date(msg.timestamp).toLocaleString()}
                           </p>
                         </div>
                       ))

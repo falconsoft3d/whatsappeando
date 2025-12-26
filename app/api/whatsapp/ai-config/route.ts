@@ -34,7 +34,9 @@ export async function POST(request: NextRequest) {
             model,
             ollamaUrl,
             ollamaModel,
-            systemPrompt
+            systemPrompt,
+            respondToNewContacts,
+            respondToExistingContacts
         } = body;
 
         if (!accountId) {
@@ -49,41 +51,43 @@ export async function POST(request: NextRequest) {
         });
 
         if (existingConfig) {
+            console.log('Updating existing config');
             config = await prisma.aiConfiguration.update({
                 where: { accountId },
                 data: {
                     enabled,
                     provider,
-                    apiKey,
-                    model,
-                    ollamaUrl,
-                    ollamaModel,
-                    systemPrompt,
+                    apiKey: apiKey || null,
+                    model: model || null,
+                    ollamaUrl: ollamaUrl || null,
+                    ollamaModel: ollamaModel || null,
+                    systemPrompt: systemPrompt || null,
+                    respondToNewContacts: respondToNewContacts ?? true,
+                    respondToExistingContacts: respondToExistingContacts ?? true
                 }
             });
-            console.log('AI config updated:', config.id);
         } else {
+            console.log('Creating new config');
             config = await prisma.aiConfiguration.create({
                 data: {
                     accountId,
                     enabled,
                     provider,
-                    apiKey,
-                    model,
-                    ollamaUrl,
-                    ollamaModel,
-                    systemPrompt,
+                    apiKey: apiKey || null,
+                    model: model || null,
+                    ollamaUrl: ollamaUrl || null,
+                    ollamaModel: ollamaModel || null,
+                    systemPrompt: systemPrompt || null,
+                    respondToNewContacts: respondToNewContacts ?? true,
+                    respondToExistingContacts: respondToExistingContacts ?? true
                 }
             });
-            console.log('AI config created:', config.id);
         }
 
+        console.log('AI config saved successfully');
         return NextResponse.json({ config }, { status: 200 });
     } catch (error) {
-        console.error('CRITICAL ERROR saving AI config:', error);
-        return NextResponse.json({
-            error: 'Error al guardar la configuración',
-            details: error instanceof Error ? error.message : String(error)
-        }, { status: 500 });
+        console.error('Error saving AI config:', error);
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

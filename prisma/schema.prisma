@@ -42,6 +42,7 @@ model WhatsAppAccount {
 
   apiLogs     ApiMessageLog[]
   chatMessages ChatMessage[]
+  contacts     Contact[]
   aiConfig    AiConfiguration?
 
   @@map("whatsapp_accounts")
@@ -62,6 +63,10 @@ model AiConfiguration {
   
   // Common Settings
   systemPrompt     String?         @default("Eres un asistente útil.")
+  
+  // Contact Filtering
+  respondToNewContacts      Boolean  @default(true)
+  respondToExistingContacts Boolean  @default(true)
   
   accountId        String          @unique
   account          WhatsAppAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
@@ -98,6 +103,23 @@ model ChatMessage {
 
   @@index([from, accountId])
   @@map("chat_messages")
+}
+
+model Contact {
+  id            String          @id @default(uuid())
+  jid           String          // WhatsApp JID (e.g. 12345678@s.whatsapp.net)
+  name          String?
+  pushName      String?         // Nombre que el usuario tiene en WA
+  isBlacklisted Boolean         @default(false)
+  
+  accountId     String
+  account       WhatsAppAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@unique([jid, accountId])
+  @@map("contacts")
 }
 
 

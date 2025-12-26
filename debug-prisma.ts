@@ -1,13 +1,15 @@
 import { prisma } from './lib/prisma';
 
-async function main() {
-    try {
-        const result = await prisma.$queryRaw`SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'`;
-        console.log('Tables in database:', result);
-    } catch (error) {
-        console.error('Error querying tables:', error);
+async function debug() {
+    console.log('prisma is defined:', !!prisma);
+    if (prisma) {
+        console.log('Available models:', Object.keys(prisma).filter(k => !k.startsWith('_') && !k.startsWith('$')));
+        console.log('contact exists:', !!(prisma as any).contact);
+        if ((prisma as any).contact) {
+            console.log('contact has upsert:', typeof (prisma as any).contact.upsert);
+        }
     }
     process.exit(0);
 }
 
-main();
+debug();
