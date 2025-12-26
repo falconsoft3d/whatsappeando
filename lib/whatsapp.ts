@@ -18,7 +18,7 @@ import os from 'os';
 import { prisma } from './prisma';
 
 // Ruta para guardar las sesiones (usar /tmp en producción/Vercel)
-const BASE_AUTH_DIR = process.env.NODE_ENV === 'production'
+const BASE_AUTH_DIR = (process.env.NODE_ENV === 'production' || process.env.VERCEL)
   ? path.join(os.tmpdir(), 'auth_sessions')
   : path.join(process.cwd(), 'auth_sessions');
 
@@ -445,7 +445,7 @@ export async function reconnectSession(sessionId: string): Promise<void> {
     // Crear nuevo store para la reconexión
     const store = makeInMemoryStore({ logger: pino({ level: 'silent' }) });
 
-    const authDir = path.join(process.cwd(), 'auth_sessions', sessionId);
+    const authDir = path.join(BASE_AUTH_DIR, sessionId);
     const { state, saveCreds } = await useMultiFileAuthState(authDir);
 
     const sock = makeWASocket({
