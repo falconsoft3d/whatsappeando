@@ -41,8 +41,35 @@ model WhatsAppAccount {
   updatedAt   DateTime @updatedAt
 
   apiLogs     ApiMessageLog[]
+  chatMessages ChatMessage[]
+  aiConfig    AiConfiguration?
 
   @@map("whatsapp_accounts")
+}
+
+model AiConfiguration {
+  id               String          @id @default(uuid())
+  enabled          Boolean         @default(false)
+  provider         String          @default("chatgpt") // chatgpt, ollama
+  
+  // ChatGPT Settings
+  apiKey           String?
+  model            String?         @default("gpt-3.5-turbo")
+  
+  // Ollama Settings
+  ollamaUrl        String?         @default("http://localhost:11434")
+  ollamaModel      String?         @default("llama2")
+  
+  // Common Settings
+  systemPrompt     String?         @default("Eres un asistente útil.")
+  
+  accountId        String          @unique
+  account          WhatsAppAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@map("ai_configurations")
 }
 
 model ApiMessageLog {
@@ -58,6 +85,19 @@ model ApiMessageLog {
   createdAt         DateTime        @default(now())
 
   @@map("api_message_logs")
+}
+
+model ChatMessage {
+  id          String          @id @default(uuid())
+  role        String          // 'user' (cliente) o 'assistant' (IA)
+  content     String
+  from        String          // remoteJid o número del cliente
+  accountId   String
+  account     WhatsAppAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  createdAt   DateTime        @default(now())
+
+  @@index([from, accountId])
+  @@map("chat_messages")
 }
 
 

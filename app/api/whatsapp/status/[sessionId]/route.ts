@@ -53,6 +53,7 @@ export async function GET(
       phoneNumber: session.phoneNumber,
       error: session.error,
       retryCount: session.retryCount,
+      logs: session.logs || []
     }, { status: 200 });
   } catch (error) {
     console.error('Error checking status:', error);

@@ -36,8 +36,9 @@ export default function AccountsPage() {
     apiToken: '',
     apiEnabled: false,
   });
-  const [activeConfigTab, setActiveConfigTab] = useState<'config' | 'docs'>('config');
+  const [activeConfigTab, setActiveConfigTab] = useState<'config' | 'docs' | 'session'>('config');
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+  const [logs, setLogs] = useState<string[]>([]);
   const [serverError, setServerError] = useState<{ message: string, details?: string } | null>(null);
   const [isPrivateMode, setIsPrivateMode] = useState(false);
 
@@ -52,7 +53,12 @@ export default function AccountsPage() {
 
   const maskText = (text: string) => isPrivateMode ? '********' : text;
 
-  // Cargar cuentas desde el servidor y sincronizar con localStorage
+  useEffect(() => {
+    const logsEnd = document.getElementById('logs-end');
+    if (logsEnd) {
+      logsEnd.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [logs]);
   useEffect(() => {
     const fetchAccounts = async () => {
       try {
@@ -132,6 +138,7 @@ export default function AccountsPage() {
 
             setConnectionStatus(data.status);
             setRetryCount(data.retryCount || 0);
+            if (data.logs) setLogs(data.logs);
 
             // Mostrar mensaje de reintento
             if (data.retryCount && data.retryCount > 0) {
@@ -347,6 +354,7 @@ export default function AccountsPage() {
   const handleConnect = async (account: Account) => {
     try {
       setSelectedAccount(account);
+      setLogs([]);
 
       const response = await fetch('/api/whatsapp/connect', {
         method: 'POST',
@@ -692,6 +700,15 @@ export default function AccountsPage() {
                 >
                   Documentación API
                 </button>
+                <button
+                  onClick={() => setActiveConfigTab('session')}
+                  className={`flex-1 pb-2 text-sm font-medium transition-colors ${activeConfigTab === 'session'
+                    ? 'border-b-2 border-blue-500 text-blue-600'
+                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+                    }`}
+                >
+                  Sesión
+                </button>
               </div>
             )}
 
@@ -734,7 +751,21 @@ export default function AccountsPage() {
                         type="checkbox"
                         className="sr-only"
                         checked={formData.apiEnabled}
-                        onChange={(e) => setFormData({ ...formData, apiEnabled: e.target.checked })}
+                        onChange={(e) => {
+                          const enabled = e.target.checked;
+                          setFormData(prev => {
+                            const newData = { ...prev, apiEnabled: enabled };
+                            if (enabled && !prev.apiToken) {
+                              const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+                              let token = '';
+                              for (let i = 0; i < 32; i++) {
+                                token += chars.charAt(Math.floor(Math.random() * chars.length));
+                              }
+                              newData.apiToken = token;
+                            }
+                            return newData;
+                          });
+                        }}
                       />
                       <div className={`h-6 w-11 rounded-full transition-colors ${formData.apiEnabled ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'}`}>
                         <div className={`absolute left-[2px] top-[2px] h-5 w-5 rounded-full bg-white transition-transform ${formData.apiEnabled ? 'translate-x-[20px]' : ''}`}></div>
@@ -803,7 +834,7 @@ export default function AccountsPage() {
                   </button>
                 </div>
               </form>
-            ) : (
+            ) : activeConfigTab === 'docs' ? (
               <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                 <section>
                   <h4 className="font-bold text-gray-900 dark:text-white mb-2">Enviar Mensaje</h4>
@@ -843,7 +874,7 @@ export default function AccountsPage() {
                     <p className="text-gray-500">{"}"}</p>
                   </div>
                   <p className="mt-2 text-[10px] text-gray-500">Tipos soportados: <b>image, video, audio, document</b></p>
-                  <p className="text-[10px] text-amber-500">La URL debe ser pública y accesible por el servidor.</p>
+                  <p className="mt-1 text-[10px] text-gray-500 italic">Whatsappeando enviará un POST JSON con: id, from, text, timestamp.</p>
                 </section>
 
                 <section>
@@ -870,6 +901,100 @@ export default function AccountsPage() {
                 >
                   Volver a Configuración
                 </button>
+              </div>
+            ) : (
+              <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar animate-in fade-in slide-in-from-right-2 duration-300">
+                <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-4 dark:border-gray-700 dark:bg-gray-900/30">
+                  <h4 className="text-xs font-bold text-gray-400 uppercase mb-3 px-1">Detalles Técnicos</h4>
+
+                  <div className="space-y-3">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium px-1">ID de Cuenta (DB)</span>
+                      <div className="mt-1 p-2 bg-white dark:bg-gray-800 rounded border border-gray-100 dark:border-gray-700 text-xs font-mono text-gray-900 dark:text-white break-all">
+                        {editingAccount?.id}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col">
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium px-1">Session ID (WhatsApp)</span>
+                      <div className="mt-1 p-2 bg-white dark:bg-gray-800 rounded border border-gray-100 dark:border-gray-700 text-xs font-mono text-gray-600 dark:text-gray-400 break-all">
+                        {editingAccount?.sessionId || 'Sin sesión activa'}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col">
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium px-1">API Token</span>
+                      <div className="relative mt-1">
+                        <div className="p-2 bg-white dark:bg-gray-800 rounded border border-gray-100 dark:border-gray-700 text-xs font-mono text-blue-600 dark:text-blue-400 break-all">
+                          {maskText(editingAccount?.apiToken || 'No generado')}
+                        </div>
+                        {editingAccount?.apiToken && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(editingAccount.apiToken!);
+                              Swal.fire({
+                                title: '¡Copiado!',
+                                text: 'Token copiado al portapapeles',
+                                icon: 'success',
+                                timer: 1500,
+                                showConfirmButton: false,
+                                background: document.documentElement.classList.contains('dark') ? '#1f2937' : '#fff',
+                                color: document.documentElement.classList.contains('dark') ? '#fff' : '#000',
+                              });
+                            }}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-blue-500"
+                          >
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium px-1">Estado en DB</span>
+                        <div className={`mt-1 p-2 rounded border text-[10px] font-bold text-center uppercase ${editingAccount?.status === 'connected'
+                            ? 'bg-green-50 border-green-100 text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400'
+                            : 'bg-red-50 border-red-100 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400'
+                          }`}>
+                          {editingAccount?.status}
+                        </div>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium px-1">API Status</span>
+                        <div className={`mt-1 p-2 rounded border text-[10px] font-bold text-center uppercase ${editingAccount?.apiEnabled
+                            ? 'bg-blue-50 border-blue-100 text-blue-700 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-400'
+                            : 'bg-gray-50 border-gray-200 text-gray-500 dark:bg-gray-800 dark:border-gray-700'
+                          }`}>
+                          {editingAccount?.apiEnabled ? 'ACTIVA' : 'INACTIVA'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col">
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium px-1">Webhook URL</span>
+                      <div className="mt-1 p-2 bg-white dark:bg-gray-800 rounded border border-gray-100 dark:border-gray-700 text-[10px] font-mono text-gray-500 truncate">
+                        {editingAccount?.webhookUrl || 'No configurado'}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col">
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium px-1">Fecha de Creación</span>
+                      <div className="mt-1 text-[10px] text-gray-400 px-1 font-mono italic">
+                        {editingAccount?.createdAt && new Date(editingAccount.createdAt).toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-900/20 text-center">
+                  <p className="text-[10px] text-blue-600 dark:text-blue-400 leading-relaxed italic">
+                    Esta pestaña contiene información técnica necesaria para depurar la conexión si es necesario.
+                  </p>
+                </div>
               </div>
             )}
           </div>
@@ -931,6 +1056,21 @@ export default function AccountsPage() {
                   <li>5. Escanea este código QR</li>
                 </ol>
               </div>
+
+              {/* Logs de progreso */}
+              {logs.length > 0 && (
+                <div className="mt-4 text-left">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase mb-1 px-1">Progreso:</p>
+                  <div className="h-24 overflow-y-auto rounded bg-gray-50 p-2 text-[10px] font-mono dark:bg-gray-900/50 custom-scrollbar">
+                    {logs.map((log, i) => (
+                      <p key={i} className="text-gray-600 dark:text-gray-400 leading-tight mb-0.5 whitespace-nowrap overflow-hidden text-ellipsis">
+                        {log}
+                      </p>
+                    ))}
+                    <div id="logs-end"></div>
+                  </div>
+                </div>
+              )}
 
               <div className="mt-6 flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                 {errorMessage ? (

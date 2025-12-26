@@ -16,7 +16,7 @@ export default function ApiTestPage() {
     const [accounts, setAccounts] = useState<Account[]>([]);
     const [selectedAccountId, setSelectedAccountId] = useState<string | number>('');
     const [to, setTo] = useState('');
-    const [message, setMessage] = useState('');
+    const [message, setMessage] = useState('Ejemplo de prueba de Whatsappeando');
     const [apiToken, setApiToken] = useState('');
     const [loading, setLoading] = useState(false);
     const [initialLoading, setInitialLoading] = useState(true);
@@ -62,6 +62,7 @@ export default function ApiTestPage() {
                     if (apiAccounts.length > 0) {
                         setSelectedAccountId(apiAccounts[0].id);
                         setApiToken(apiAccounts[0].apiToken || '');
+                        setTo(apiAccounts[0].phoneNumber || '');
                     }
                 } else {
                     console.error('API Test - Error al cargar cuentas:', await res.text());
@@ -80,6 +81,7 @@ export default function ApiTestPage() {
         const account = accounts.find(acc => String(acc.id) === String(id));
         if (account) {
             setApiToken(account.apiToken || '');
+            setTo(account.phoneNumber || '');
         }
     };
 

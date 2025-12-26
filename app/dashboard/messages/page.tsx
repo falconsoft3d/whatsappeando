@@ -59,6 +59,7 @@ export default function MessagesPage() {
 
         if (connectedAccounts.length > 0) {
           setSelectedAccount(connectedAccounts[0]);
+          setPhoneNumber(connectedAccounts[0].phoneNumber || '');
         }
       } catch (error) {
         console.error('Error loading accounts:', error);
@@ -236,6 +237,9 @@ export default function MessagesPage() {
                         onChange={(e) => {
                           const acc = accounts.find(a => String(a.id) === String(e.target.value));
                           setSelectedAccount(acc || null);
+                          if (acc) {
+                            setPhoneNumber(acc.phoneNumber || '');
+                          }
                         }}
                         className="w-full rounded-xl border border-gray-200 dark:border-gray-700 p-2.5 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 transition-all outline-none"
                       >

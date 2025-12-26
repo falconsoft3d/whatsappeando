@@ -154,6 +154,7 @@ interface WhatsAppSession {
   webhookUrl?: string;
   apiToken?: string;
   apiEnabled?: boolean;
+  logs?: string[];
 }
 
 const globalForSessions = global as typeof globalThis & {
@@ -187,9 +188,11 @@ export async function generateQR(sessionId: string): Promise<string> {
         retryCount: 0
       };
       sessions.set(sessionId, initialSession);
+      addSessionLog(sessionId, '🚀 Iniciando motor de WhatsApp...');
       console.log('📝 Sesión inicializada:', sessionId, 'Total sesiones:', sessions.size);
 
       // Obtener la última versión de Baileys
+      addSessionLog(sessionId, '🔍 Verificando versión de Baileys...');
       const { version } = await fetchLatestBaileysVersion();
 
       // Crear store para almacenar contactos, chats y mensajes
@@ -197,6 +200,7 @@ export async function generateQR(sessionId: string): Promise<string> {
 
       // Ruta absoluta para auth_sessions
       const authDir = path.join(BASE_AUTH_DIR, sessionId);
+      addSessionLog(sessionId, '📂 Configurando almacenamiento de sesión...');
       const { state, saveCreds } = await useMultiFileAuthState(authDir);
 
       const sock = makeWASocket({
@@ -209,6 +213,7 @@ export async function generateQR(sessionId: string): Promise<string> {
         defaultQueryTimeoutMs: 60000,
         keepAliveIntervalMs: 30000
       });
+      addSessionLog(sessionId, '🔌 Abriendo socket de conexión...');
 
       // Vincular el store al socket
       store.bind(sock.ev);
@@ -253,6 +258,7 @@ export async function generateQR(sessionId: string): Promise<string> {
           });
 
           console.log('QR generado para sesión:', sessionId);
+          addSessionLog(sessionId, '📱 QR generado, esperando escaneo...');
 
           const session = sessions.get(sessionId);
           if (session) {
@@ -415,6 +421,18 @@ export function getSession(sessionId: string): WhatsAppSession | undefined {
   return session;
 }
 
+// Helper para añadir logs a la sesión
+export function addSessionLog(sessionId: string, message: string): void {
+  const session = sessions.get(sessionId);
+  if (session) {
+    if (!session.logs) session.logs = [];
+    const timestamp = new Date().toLocaleTimeString();
+    session.logs.push(`[${timestamp}] ${message}`);
+    sessions.set(sessionId, session);
+    console.log(`[LOG][${sessionId}] ${message}`);
+  }
+}
+
 export function updateSessionStatus(
   sessionId: string,
   status: WhatsAppSession['status'],
@@ -430,6 +448,9 @@ export function updateSessionStatus(
     if (status === 'connected') {
       session.retryCount = 0;
       session.error = undefined;
+      addSessionLog(sessionId, '✅ WhatsApp conectado y listo');
+    } else {
+      addSessionLog(sessionId, `Estado cambiado a: ${status}`);
     }
     sessions.set(sessionId, session);
   }
@@ -910,11 +931,33 @@ async function notifyMessageHandlers(sessionId: string, message: any) {
     });
   }
 
+  // NO procesar mensajes enviados por nosotros mismos para la IA o Webhooks (opcional el webhook, pero IA sí)
+  if (message.fromMe) return;
+
+  // Extraer accountId del sessionId
+  const accountId = sessionId.split('-').slice(0, 5).join('-');
+
+  // --- PERSISTENCIA DE MENSAJES PARA MEMORIA ---
+  if (message.text && message.text !== '[Media]') {
+    try {
+      await prisma.chatMessage.create({
+        data: {
+          role: 'user',
+          content: message.text,
+          from: message.from,
+          accountId: accountId
+        }
+      });
+    } catch (e) {
+      console.error('Error saving user message to history:', e);
+    }
+  }
+
   // Si no tenemos la configuración API en la sesión, intentar buscarla en la DB
   if (session.apiEnabled === undefined) {
     try {
       const account = await prisma.whatsAppAccount.findUnique({
-        where: { sessionId }
+        where: { id: accountId }
       }) as any;
       if (account) {
         session.apiEnabled = account.apiEnabled;
@@ -925,6 +968,105 @@ async function notifyMessageHandlers(sessionId: string, message: any) {
     } catch (e) {
       console.error('Error fetching API settings:', e);
     }
+  }
+
+  // --- LÓGICA DE INTELIGENCIA ARTIFICIAL CON MEMORIA ---
+  try {
+    const aiConfig = await prisma.aiConfiguration.findUnique({
+      where: { accountId }
+    });
+
+    if (aiConfig && aiConfig.enabled && message.text && message.text !== '[Media]') {
+      console.log(`🤖 IA Activada para ${sessionId}. Proveedor: ${aiConfig.provider}`);
+
+      // Obtener historial reciente para memoria (últimos 10 mensajes)
+      const history = await prisma.chatMessage.findMany({
+        where: {
+          from: message.from,
+          accountId: accountId
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 10
+      });
+
+      // Revertir para que estén en orden cronológico
+      const sortedHistory = history.reverse();
+
+      let aiResponse = '';
+
+      if (aiConfig.provider === 'chatgpt' && aiConfig.apiKey) {
+        try {
+          const chatContext = sortedHistory.map((msg: any) => ({
+            role: msg.role === 'user' ? 'user' : 'assistant' as 'user' | 'assistant',
+            content: msg.content
+          }));
+
+          const res = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${aiConfig.apiKey}`
+            },
+            body: JSON.stringify({
+              model: aiConfig.model || 'gpt-3.5-turbo',
+              messages: [
+                { role: 'system', content: aiConfig.systemPrompt || 'Eres un asistente útil.' },
+                ...chatContext
+              ]
+            })
+          });
+          const data = await res.json();
+          aiResponse = data.choices?.[0]?.message?.content;
+        } catch (err) {
+          console.error('Error calling ChatGPT:', err);
+        }
+      } else if (aiConfig.provider === 'ollama' && aiConfig.ollamaUrl) {
+        try {
+          // Construir prompt con historial para Ollama
+          let fullPrompt = `${aiConfig.systemPrompt}\n\nHistorial de chat:\n`;
+          sortedHistory.forEach((msg: any) => {
+            fullPrompt += `${msg.role === 'user' ? 'Usuario' : 'Asistente'}: ${msg.content}\n`;
+          });
+          fullPrompt += `Asistente:`;
+
+          const res = await fetch(`${aiConfig.ollamaUrl}/api/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: aiConfig.ollamaModel || 'llama3',
+              prompt: fullPrompt,
+              stream: false
+            })
+          });
+          const data = await res.json();
+          aiResponse = data.response;
+        } catch (err) {
+          console.error('Error calling Ollama:', err);
+        }
+      }
+
+      if (aiResponse) {
+        console.log(`✨ IA Respondiendo con memoria: ${aiResponse.substring(0, 50)}...`);
+
+        // Guardar respuesta de la IA en historial
+        try {
+          await prisma.chatMessage.create({
+            data: {
+              role: 'assistant',
+              content: aiResponse,
+              from: message.from,
+              accountId: accountId
+            }
+          });
+        } catch (e) {
+          console.error('Error saving AI response to history:', e);
+        }
+
+        await sendMessage(sessionId, message.from, aiResponse);
+      }
+    }
+  } catch (aiErr) {
+    console.error('Error en proceso de IA:', aiErr);
   }
 
   // Enviar al webhook si está configurado y la API está activa
