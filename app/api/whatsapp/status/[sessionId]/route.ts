@@ -18,14 +18,12 @@ export async function GET(
     const session = getSession(sessionId);
 
     if (!session) {
-      console.log(`⚠️ Sesión ${sessionId} no encontrada en esta instancia. Polling...`);
       return NextResponse.json(
         {
-          status: 'not_found',
-          error: 'Sesión no encontrada en esta instancia',
-          details: 'Si estás en Vercel, esto es normal por la naturaleza serverless. Reintente.'
+          status: 'searching',
+          message: 'Buscando sesión en las instancias del servidor...'
         },
-        { status: 404 }
+        { status: 200 }
       );
     }
 

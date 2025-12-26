@@ -122,13 +122,14 @@ export default function AccountsPage() {
         try {
           const response = await fetch(`/api/whatsapp/status/${sessionId}`);
 
-          if (response.status === 404) {
-            setErrorMessage('Buscando sesión en el servidor...');
-            return;
-          }
-
           if (response.ok) {
             const data = await response.json();
+
+            if (data.status === 'searching') {
+              setErrorMessage('Buscando sesión en el servidor...');
+              return;
+            }
+
             setConnectionStatus(data.status);
             setRetryCount(data.retryCount || 0);
 
