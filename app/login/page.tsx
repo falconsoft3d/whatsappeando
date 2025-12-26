@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
@@ -9,8 +9,20 @@ export default function LoginPage() {
     email: '',
     password: '',
   });
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // Cargar email guardado si existe
+    if (typeof window !== 'undefined') {
+      const savedEmail = localStorage.getItem('rememberedEmail');
+      if (savedEmail) {
+        setFormData(prev => ({ ...prev, email: savedEmail }));
+        setRememberMe(true);
+      }
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +40,7 @@ export default function LoginPage() {
 
       // Obtener el texto de la respuesta primero
       const text = await response.text();
-      
+
       if (!response.ok) {
         // Intentar parsear como JSON
         let errorMessage = 'Error al iniciar sesión';
@@ -50,6 +62,13 @@ export default function LoginPage() {
         localStorage.setItem('user', JSON.stringify(data.user));
         if (data.token) {
           localStorage.setItem('token', data.token);
+        }
+
+        // Manejar "Recordar"
+        if (rememberMe) {
+          localStorage.setItem('rememberedEmail', formData.email);
+        } else {
+          localStorage.removeItem('rememberedEmail');
         }
       }
 
@@ -124,9 +143,23 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div className="flex items-center justify-end">
-            <a 
-              href="/forgot-password" 
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <input
+                id="remember-me"
+                name="remember-me"
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
+              />
+              <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+                Recordarme
+              </label>
+            </div>
+
+            <a
+              href="/forgot-password"
               className="text-sm font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400"
             >
               ¿Olvidaste tu contraseña?
