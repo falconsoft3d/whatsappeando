@@ -180,7 +180,7 @@ export function getSessions() {
   return sessions;
 }
 
-export async function generateQR(sessionId: string): Promise<string> {
+export async function generateQR(sessionId: string, userName?: string): Promise<string> {
   return new Promise(async (resolve, reject) => {
     try {
       // Inicializar sesión ANTES de crear el socket
@@ -213,7 +213,7 @@ export async function generateQR(sessionId: string): Promise<string> {
         auth: state,
         printQRInTerminal: false,
         logger: pino({ level: 'silent' }), // Silencio total para ahorrar recursos en Vercel
-        browser: ['Mac OS', 'Chrome', '121.0.6167.85'],
+        browser: [userName ? `Whatsappeando-${userName}` : 'Whatsappeando', 'Chrome', '121.0.6167.85'],
         connectTimeoutMs: 30000,
         defaultQueryTimeoutMs: 15000,
         keepAliveIntervalMs: 10000, // Mantener vivo más agresivamente
@@ -1061,6 +1061,15 @@ async function notifyMessageHandlers(sessionId: string, message: any) {
       where: { accountId }
     });
 
+    console.log('🔍 AI Config:', {
+      found: !!aiConfig,
+      enabled: aiConfig?.enabled,
+      provider: aiConfig?.provider,
+      allowedPhoneNumbers: (aiConfig as any)?.allowedPhoneNumbers,
+      allowedPhoneNumbersType: typeof (aiConfig as any)?.allowedPhoneNumbers,
+      allowedPhoneNumbersLength: (aiConfig as any)?.allowedPhoneNumbers?.length
+    });
+
     if (aiConfig && aiConfig.enabled && message.text && message.text !== '[Media]') {
       // VERIFICAR LISTA NEGRA DEL CONTACTO
       const contact = await prisma.contact.findUnique({
@@ -1097,6 +1106,32 @@ async function notifyMessageHandlers(sessionId: string, message: any) {
       if (!isNewContact && !(aiConfig as any).respondToExistingContacts) {
         console.log(`📇 IA Omitida: Contacto antiguo y respondToExistingContacts está desactivado.`);
         return;
+      }
+
+      // VERIFICAR SI EL NÚMERO ESTÁ EN LA LISTA DE PERMITIDOS
+      const allowedPhoneNumbers = (aiConfig as any).allowedPhoneNumbers;
+
+      // Solo aplicar filtro si allowedPhoneNumbers existe, es un array y tiene elementos
+      if (Array.isArray(allowedPhoneNumbers) && allowedPhoneNumbers.length > 0) {
+        // Extraer el número de teléfono del JID (ej: 34612345678@s.whatsapp.net -> 34612345678)
+        const phoneNumber = message.from.split('@')[0];
+
+        // Verificar si el número está en la lista permitida
+        const isAllowed = allowedPhoneNumbers.some((allowed: string) => {
+          // Limpiar ambos números de caracteres no numéricos para comparar
+          const cleanAllowed = allowed.replace(/\D/g, '');
+          const cleanPhone = phoneNumber.replace(/\D/g, '');
+          return cleanAllowed === cleanPhone || cleanPhone.endsWith(cleanAllowed) || cleanAllowed.endsWith(cleanPhone);
+        });
+
+        if (!isAllowed) {
+          console.log(`🚫 IA Omitida: Número ${phoneNumber} no está en la lista de permitidos.`);
+          return;
+        }
+
+        console.log(`✅ Número ${phoneNumber} verificado en lista de permitidos.`);
+      } else {
+        console.log(`📋 Lista de números permitidos vacía o no configurada. Respondiendo según filtros de contactos.`);
       }
 
       console.log(`🤖 IA Activada para ${sessionId}. Proveedor: ${aiConfig.provider} | Contacto: ${isNewContact ? 'NUEVO' : 'ANTIGUO'}`);

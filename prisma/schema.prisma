@@ -67,6 +67,7 @@ model AiConfiguration {
   // Contact Filtering
   respondToNewContacts      Boolean  @default(true)
   respondToExistingContacts Boolean  @default(true)
+  allowedPhoneNumbers       String[] @default([]) // Si está vacío, responde a todos. Si tiene números, solo responde a esos.
   
   accountId        String          @unique
   account          WhatsAppAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)

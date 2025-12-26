@@ -36,7 +36,8 @@ export async function POST(request: NextRequest) {
             ollamaModel,
             systemPrompt,
             respondToNewContacts,
-            respondToExistingContacts
+            respondToExistingContacts,
+            allowedPhoneNumbers
         } = body;
 
         if (!accountId) {
@@ -63,7 +64,8 @@ export async function POST(request: NextRequest) {
                     ollamaModel: ollamaModel || null,
                     systemPrompt: systemPrompt || null,
                     respondToNewContacts: respondToNewContacts ?? true,
-                    respondToExistingContacts: respondToExistingContacts ?? true
+                    respondToExistingContacts: respondToExistingContacts ?? true,
+                    allowedPhoneNumbers: allowedPhoneNumbers || []
                 }
             });
         } else {
@@ -79,7 +81,8 @@ export async function POST(request: NextRequest) {
                     ollamaModel: ollamaModel || null,
                     systemPrompt: systemPrompt || null,
                     respondToNewContacts: respondToNewContacts ?? true,
-                    respondToExistingContacts: respondToExistingContacts ?? true
+                    respondToExistingContacts: respondToExistingContacts ?? true,
+                    allowedPhoneNumbers: allowedPhoneNumbers || []
                 }
             });
         }

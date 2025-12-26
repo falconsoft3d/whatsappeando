@@ -19,6 +19,7 @@ interface AIConfig {
     systemPrompt: string;
     respondToNewContacts: boolean;
     respondToExistingContacts: boolean;
+    allowedPhoneNumbers: string[];
 }
 
 export default function AIModelsPage() {
@@ -36,6 +37,7 @@ export default function AIModelsPage() {
         systemPrompt: 'Eres un asistente útil que responde por WhatsApp.',
         respondToNewContacts: true,
         respondToExistingContacts: true,
+        allowedPhoneNumbers: [],
     });
 
     const [ollamaModels, setOllamaModels] = useState<string[]>([]);
@@ -93,6 +95,7 @@ export default function AIModelsPage() {
                         systemPrompt: data.config.systemPrompt || 'Eres un asistente útil que responde por WhatsApp.',
                         respondToNewContacts: data.config.respondToNewContacts ?? true,
                         respondToExistingContacts: data.config.respondToExistingContacts ?? true,
+                        allowedPhoneNumbers: data.config.allowedPhoneNumbers || [],
                     });
                 } else {
                     // Reset to default if no config found
@@ -106,6 +109,7 @@ export default function AIModelsPage() {
                         systemPrompt: 'Eres un asistente útil que responde por WhatsApp.',
                         respondToNewContacts: true,
                         respondToExistingContacts: true,
+                        allowedPhoneNumbers: [],
                     });
                 }
             }
@@ -438,6 +442,85 @@ export default function AIModelsPage() {
                                     <div className="mt-3 flex items-start gap-2 px-1">
                                         <span className="text-amber-500 text-lg">⚠️</span>
                                         <p className="text-[10px] text-gray-400 font-medium italic">Si desactivas ambas opciones, la IA no responderá a ningún contacto. Usa la lista negra en "Contactos" para bloquear personas específicas.</p>
+                                    </div>
+                                </div>
+
+                                {/* Números Permitidos */}
+                                <div className="pt-6 border-t border-gray-100 dark:border-gray-700">
+                                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 ml-1">📞 Números Permitidos (Opcional)</label>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 px-1">
+                                        Si agregas números aquí, la IA <strong>solo responderá a estos números</strong>. Si dejas la lista vacía, responderá según los filtros de contactos.
+                                    </p>
+
+                                    <div className="space-y-3">
+                                        {/* Lista de números */}
+                                        {config.allowedPhoneNumbers.length > 0 && (
+                                            <div className="space-y-2">
+                                                {config.allowedPhoneNumbers.map((phone, index) => (
+                                                    <div key={index} className="flex items-center gap-2 p-3 rounded-xl bg-blue-50/50 dark:bg-blue-900/10 border-2 border-blue-100 dark:border-blue-800/30">
+                                                        <span className="flex-1 text-sm font-mono text-gray-900 dark:text-white">{phone}</span>
+                                                        <button
+                                                            onClick={() => {
+                                                                const newNumbers = config.allowedPhoneNumbers.filter((_, i) => i !== index);
+                                                                setConfig({ ...config, allowedPhoneNumbers: newNumbers });
+                                                            }}
+                                                            className="p-2 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/20 text-red-500 transition-colors"
+                                                            title="Eliminar número"
+                                                        >
+                                                            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* Input para agregar nuevo número */}
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                id="newPhoneNumber"
+                                                placeholder="Ej: +34612345678 o 34612345678"
+                                                className="flex-1 rounded-xl border-2 border-gray-100 dark:border-gray-700 px-4 py-3 bg-gray-50/50 dark:bg-gray-900/50 focus:border-blue-500 focus:bg-white dark:focus:bg-gray-900 focus:outline-none dark:text-white text-sm transition-all"
+                                                onKeyPress={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        const input = e.currentTarget;
+                                                        const phone = input.value.trim();
+                                                        if (phone && !config.allowedPhoneNumbers.includes(phone)) {
+                                                            setConfig({
+                                                                ...config,
+                                                                allowedPhoneNumbers: [...config.allowedPhoneNumbers, phone]
+                                                            });
+                                                            input.value = '';
+                                                        }
+                                                    }
+                                                }}
+                                            />
+                                            <button
+                                                onClick={() => {
+                                                    const input = document.getElementById('newPhoneNumber') as HTMLInputElement;
+                                                    const phone = input.value.trim();
+                                                    if (phone && !config.allowedPhoneNumbers.includes(phone)) {
+                                                        setConfig({
+                                                            ...config,
+                                                            allowedPhoneNumbers: [...config.allowedPhoneNumbers, phone]
+                                                        });
+                                                        input.value = '';
+                                                    }
+                                                }}
+                                                className="px-6 py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-bold text-sm transition-colors"
+                                            >
+                                                Agregar
+                                            </button>
+                                        </div>
+
+                                        <div className="flex items-start gap-2 px-1">
+                                            <span className="text-blue-500 text-lg">💡</span>
+                                            <p className="text-[10px] text-gray-400 font-medium italic">
+                                                Puedes usar el formato internacional (+34612345678) o sin el símbolo + (34612345678). La comparación es flexible.
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
