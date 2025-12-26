@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { generateQR } from '@/lib/whatsapp';
 
+export const maxDuration = 60; // Allow up to 60 seconds for QR generation and initial connection
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();

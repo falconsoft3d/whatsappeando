@@ -207,11 +207,16 @@ export async function generateQR(sessionId: string): Promise<string> {
         version,
         auth: state,
         printQRInTerminal: false,
-        logger: pino({ level: 'error' }), // Solo errores
-        browser: ['Whatsappeando', 'Desktop', '1.0.0'],
-        connectTimeoutMs: 60000,
-        defaultQueryTimeoutMs: 60000,
-        keepAliveIntervalMs: 30000
+        logger: pino({ level: 'silent' }), // Silencio total para ahorrar recursos en Vercel
+        browser: ['Mac OS', 'Chrome', '121.0.6167.85'],
+        connectTimeoutMs: 30000,
+        defaultQueryTimeoutMs: 15000,
+        keepAliveIntervalMs: 10000, // Mantener vivo más agresivamente
+        generateHighQualityLinkPreview: false, // Más rápido
+        syncFullHistory: false, // NO sincronizar todo el historial (pesado para Vercel)
+        getMessage: async (key) => {
+          return { conversation: '' } as proto.IMessage;
+        }
       });
       addSessionLog(sessionId, '🔌 Abriendo socket de conexión...');
 
