@@ -121,6 +121,12 @@ export default function AccountsPage() {
 
         try {
           const response = await fetch(`/api/whatsapp/status/${sessionId}`);
+
+          if (response.status === 404) {
+            setErrorMessage('Buscando sesión en el servidor...');
+            return;
+          }
+
           if (response.ok) {
             const data = await response.json();
             setConnectionStatus(data.status);
@@ -138,6 +144,12 @@ export default function AccountsPage() {
             if (data.status === 'connected') {
               clearInterval(checkStatus);
               setErrorMessage('¡Conectado exitosamente!');
+
+              // Recargar la página después de 2 segundos para actualizar todo el estado
+              setTimeout(() => {
+                setShowQRModal(false);
+                window.location.reload();
+              }, 2000);
 
               // Guardar cuenta en la base de datos (opcional)
               if (selectedAccount && data.phoneNumber) {
@@ -182,14 +194,7 @@ export default function AccountsPage() {
                 ));
               }
 
-              // Mantener modal abierto 3 segundos mostrando éxito
-              setTimeout(() => {
-                setShowQRModal(false);
-                setSelectedAccount(null);
-                setConnectionStatus('pending');
-                setErrorMessage('');
-                setRetryCount(0);
-              }, 3000);
+              // La página se recargará automáticamente según el timeout anterior
             } else if (data.status === 'error') {
               clearInterval(checkStatus);
               setErrorMessage(data.error || 'Error al conectar. Genera un nuevo QR.');
@@ -578,8 +583,8 @@ export default function AccountsPage() {
                   className="rounded-lg bg-gray-50 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:bg-gray-900/20 dark:text-gray-400 dark:hover:bg-gray-900/30"
                 >
                   <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15a3 3 0 100-6 3 3 0 000 6z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
                   </svg>
                 </button>
                 <button

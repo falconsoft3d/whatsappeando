@@ -7,7 +7,7 @@ export async function GET(
 ) {
   try {
     const { sessionId } = await params;
-    
+
     if (!sessionId) {
       return NextResponse.json(
         { error: 'ID de sesión requerido' },
@@ -16,10 +16,15 @@ export async function GET(
     }
 
     const session = getSession(sessionId);
-    
+
     if (!session) {
+      console.log(`⚠️ Sesión ${sessionId} no encontrada en esta instancia. Polling...`);
       return NextResponse.json(
-        { error: 'Sesión no encontrada' },
+        {
+          status: 'not_found',
+          error: 'Sesión no encontrada en esta instancia',
+          details: 'Si estás en Vercel, esto es normal por la naturaleza serverless. Reintente.'
+        },
         { status: 404 }
       );
     }
