@@ -113,6 +113,13 @@ function makeInMemoryStore(config: { logger?: any }) {
     readFromFile: (path: string) => { }
   };
 }
+export interface MediaAttachment {
+  url: string;
+  type: 'image' | 'video' | 'audio' | 'document';
+  caption?: string;
+  filename?: string;
+  mimetype?: string;
+}
 
 
 interface WhatsAppSession {
@@ -565,9 +572,15 @@ async function ensureSession(sessionId: string): Promise<WhatsAppSession> {
 export async function sendMessage(
   sessionId: string,
   to: string,
-  message: string
+  message?: string,
+  media?: MediaAttachment
 ): Promise<boolean> {
-  console.log('📤 Intentando enviar mensaje:', { sessionId, to, messageLength: message.length });
+  console.log('📤 Intentando enviar mensaje:', {
+    sessionId,
+    to,
+    hasMessage: !!message,
+    hasMedia: !!media
+  });
 
   const session = await ensureSession(sessionId);
 
@@ -594,7 +607,36 @@ export async function sendMessage(
 
     console.log('📱 Enviando a JID:', jid);
 
-    await session.socket.sendMessage(jid, { text: message });
+    if (media) {
+      const content: any = { caption: message || media.caption };
+
+      switch (media.type) {
+        case 'image':
+          content.image = { url: media.url };
+          break;
+        case 'video':
+          content.video = { url: media.url };
+          break;
+        case 'audio':
+          content.audio = { url: media.url };
+          content.mimetype = media.mimetype || 'audio/mp4';
+          content.ptt = false; // true if it should be a voice note
+          break;
+        case 'document':
+          content.document = { url: media.url };
+          content.fileName = media.filename || 'document';
+          content.mimetype = media.mimetype || 'application/pdf';
+          break;
+        default:
+          throw new Error('Tipo de media no soportado: ' + media.type);
+      }
+
+      await session.socket.sendMessage(jid, content);
+    } else {
+      if (!message) throw new Error('Debe proporcionar un mensaje o un archivo adjunto');
+      await session.socket.sendMessage(jid, { text: message });
+    }
+
     console.log('✅ Mensaje enviado exitosamente');
     return true;
   } catch (error) {

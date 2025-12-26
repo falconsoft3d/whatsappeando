@@ -20,6 +20,8 @@ export default function ApiTestPage() {
     const [apiToken, setApiToken] = useState('');
     const [loading, setLoading] = useState(false);
     const [initialLoading, setInitialLoading] = useState(true);
+    const [media, setMedia] = useState<{ url: string; type: 'image' | 'video' | 'audio' | 'document' }>({ url: '', type: 'image' });
+    const [useMedia, setUseMedia] = useState(false);
     const [response, setResponse] = useState<any>(null);
     const [isPrivateMode, setIsPrivateMode] = useState(false);
 
@@ -86,17 +88,23 @@ export default function ApiTestPage() {
         setResponse(null);
         try {
             const selectedAccount = accounts.find(acc => String(acc.id) === String(selectedAccountId));
+            const payload: any = {
+                sessionId: selectedAccount?.sessionId,
+                to,
+                message,
+                apiToken
+            };
+
+            if (useMedia && media.url) {
+                payload.media = media;
+            }
+
             const res = await fetch('/api/whatsapp/send', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    sessionId: selectedAccount?.sessionId,
-                    to,
-                    message,
-                    apiToken
-                })
+                body: JSON.stringify(payload)
             });
             const data = await res.json();
             setResponse(data);
@@ -172,16 +180,93 @@ export default function ApiTestPage() {
                         />
                     </div>
 
+                    <div className="border-t border-gray-100 dark:border-gray-700 pt-4">
+                        <div className="flex items-center justify-between mb-4">
+                            <label className="text-sm font-bold text-gray-900 dark:text-white">
+                                Adjuntar Media
+                            </label>
+                            <input
+                                type="checkbox"
+                                checked={useMedia}
+                                onChange={(e) => setUseMedia(e.target.checked)}
+                                className="h-4 w-4 text-blue-600"
+                            />
+                        </div>
+
+                        {useMedia && (
+                            <div className="space-y-4 animate-in fade-in duration-200">
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-500 mb-1">Archivo (Opcional - subirá el archivo y generará la URL)</label>
+                                    <input
+                                        type="file"
+                                        onChange={async (e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) {
+                                                setLoading(true);
+                                                try {
+                                                    const formData = new FormData();
+                                                    formData.append('file', file);
+                                                    const res = await fetch('/api/upload', {
+                                                        method: 'POST',
+                                                        body: formData
+                                                    });
+                                                    const data = await res.json();
+                                                    if (data.url) {
+                                                        setMedia({ ...media, url: data.url });
+                                                        // Auto-detectar tipo por extension si es posible
+                                                        const mime = file.type;
+                                                        if (mime.startsWith('image/')) setMedia(m => ({ ...m, url: data.url, type: 'image' }));
+                                                        else if (mime.startsWith('video/')) setMedia(m => ({ ...m, url: data.url, type: 'video' }));
+                                                        else if (mime.startsWith('audio/')) setMedia(m => ({ ...m, url: data.url, type: 'audio' }));
+                                                        else setMedia(m => ({ ...m, url: data.url, type: 'document' }));
+                                                    }
+                                                } catch (err) {
+                                                    console.error('Upload error:', err);
+                                                } finally {
+                                                    setLoading(false);
+                                                }
+                                            }
+                                        }}
+                                        className="w-full text-xs rounded border border-gray-300 p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300 mb-3"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-500 mb-1">Tipo</label>
+                                    <select
+                                        value={media.type}
+                                        onChange={(e) => setMedia({ ...media, type: e.target.value as any })}
+                                        className="w-full text-xs rounded border border-gray-300 p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                    >
+                                        <option value="image">Imagen</option>
+                                        <option value="video">Video</option>
+                                        <option value="audio">Audio</option>
+                                        <option value="document">Documento</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-500 mb-1">URL del Archivo (Generado o manual)</label>
+                                    <input
+                                        type="url"
+                                        placeholder="https://ejemplo.com/archivo.jpg"
+                                        value={media.url}
+                                        onChange={(e) => setMedia({ ...media, url: e.target.value })}
+                                        className="w-full text-xs rounded border border-gray-300 p-2 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                    />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Mensaje
+                            Mensaje {useMedia ? '(Caption opcional)' : ''}
                         </label>
                         <textarea
-                            rows={4}
+                            rows={useMedia ? 2 : 4}
                             value={message}
                             onChange={(e) => setMessage(e.target.value)}
                             className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                            placeholder="Escribe tu mensaje de prueba aquí..."
+                            placeholder="Escribe tu mensaje aquí..."
                         />
                     </div>
 

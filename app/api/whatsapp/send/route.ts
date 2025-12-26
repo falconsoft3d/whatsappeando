@@ -5,15 +5,15 @@ import { prisma } from '@/lib/prisma';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { sessionId, phoneNumber, to, message, apiToken } = body;
+    const { sessionId, phoneNumber, to, message, media, apiToken } = body;
 
     // El cliente puede usar 'to' o 'phoneNumber'
     const targetPhone = to || phoneNumber;
     const targetSession = sessionId;
 
-    if (!targetPhone || !message) {
+    if (!targetPhone || (!message && !media)) {
       return NextResponse.json(
-        { error: 'phoneNumber/to y message son requeridos' },
+        { error: 'Debe proporcionar phoneNumber/to y un message o media' },
         { status: 400 }
       );
     }
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
         where: {
           OR: [
             { sessionId: targetSession },
-            { phoneNumber: targetPhone }
+            { phoneNumber: String(targetSession) } // A veces el sessionId es el telefono
           ],
           apiToken: apiToken,
           apiEnabled: true
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
         );
       }
 
-      const success = await sendMessage(effectiveSessionId, targetPhone, message);
+      const success = await sendMessage(effectiveSessionId, targetPhone, message, media);
       return NextResponse.json({ success, message: success ? 'Enviado' : 'Error en el envío' });
     }
 
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'sessionId requerido' }, { status: 400 });
     }
 
-    const success = await sendMessage(targetSession, targetPhone, message);
+    const success = await sendMessage(targetSession, targetPhone, message, media);
     return NextResponse.json({ success, message: success ? 'Enviado' : 'Error en el envío' });
 
   } catch (error) {

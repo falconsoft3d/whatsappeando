@@ -743,6 +743,35 @@ export default function AccountsPage() {
                 </section>
 
                 <section>
+                  <h4 className="font-bold text-gray-900 dark:text-white mb-2">Enviar Archivos</h4>
+                  <div className="rounded-lg bg-gray-950 p-3 text-xs text-gray-300 font-mono">
+                    <p className="text-blue-400 mb-1">POST /api/whatsapp/send</p>
+                    <p className="text-gray-500">{"{"}</p>
+                    <p className="pl-4 text-green-400">"to": "34600000000",</p>
+                    <p className="pl-4 text-green-400">"apiToken": "{formData.apiToken || 'TU_TOKEN'}",</p>
+                    <p className="pl-4 text-green-400">"media": {"{"}</p>
+                    <p className="pl-8 text-yellow-400">"type": "image",</p>
+                    <p className="pl-8 text-yellow-400">"url": "https://tusitio.com/foto.jpg",</p>
+                    <p className="pl-8 text-yellow-400">"caption": "Opcional"</p>
+                    <p className="pl-4 text-green-400">{"}"}</p>
+                    <p className="text-gray-500">{"}"}</p>
+                  </div>
+
+                  <div className="mt-4 rounded-lg bg-gray-950 p-3 text-[10px] text-gray-300 font-mono">
+                    <p className="text-blue-400 mb-1">// Ejemplo Envío de Documento (PDF/Doc)</p>
+                    <p className="text-gray-500">{"{"}</p>
+                    <p className="pl-4 text-green-400">"media": {"{"}</p>
+                    <p className="pl-8 text-yellow-400">"type": "document",</p>
+                    <p className="pl-8 text-yellow-400">"url": "https://tusitio.com/factura.pdf",</p>
+                    <p className="pl-8 text-yellow-400">"filename": "Factura_123.pdf"</p>
+                    <p className="pl-4 text-green-400">{"}"}</p>
+                    <p className="text-gray-500">{"}"}</p>
+                  </div>
+                  <p className="mt-2 text-[10px] text-gray-500">Tipos soportados: <b>image, video, audio, document</b></p>
+                  <p className="text-[10px] text-amber-500">La URL debe ser pública y accesible por el servidor.</p>
+                </section>
+
+                <section>
                   <h4 className="font-bold text-gray-900 dark:text-white mb-2">Recibir Webhook</h4>
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
                     Si el Webhook está activo, recibirás un POST con el siguiente formato cada vez que entre un mensaje:
