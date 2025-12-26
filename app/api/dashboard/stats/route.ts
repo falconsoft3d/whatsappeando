@@ -42,14 +42,31 @@ export async function GET(request: NextRequest) {
             } as any
         });
 
+        // 4. Mensajes enviados (Logs API)
+        let totalMessages = 0;
+        try {
+            totalMessages = await (prisma as any).apiMessageLog.count({
+                where: { account: { userId } }
+            });
+        } catch (e) {
+            console.warn('ApiMessageLog not ready yet');
+        }
+
+        // 5. Estado de los pasos (Primeros Pasos)
+        const steps = {
+            accountCreated: true, // Si está aquí, ya tiene cuenta
+            accountConnected: connectedAccounts > 0,
+            firstMessageSent: totalMessages > 0
+        };
+
         return NextResponse.json({
             stats: {
                 totalAccounts,
                 connectedAccounts,
                 apiEnabledAccounts,
-                // Podríamos agregar más cosas como mensajes enviados si tuviéramos una tabla
-                totalMessages: 0
-            }
+                totalMessages
+            },
+            steps
         });
 
     } catch (error) {

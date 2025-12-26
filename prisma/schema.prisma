@@ -4,7 +4,6 @@
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["driverAdapters"]
-  output          = "../node_modules/.prisma/client"
 }
 
 datasource db {
@@ -41,6 +40,24 @@ model WhatsAppAccount {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  apiLogs     ApiMessageLog[]
+
   @@map("whatsapp_accounts")
 }
+
+model ApiMessageLog {
+  id                String          @id @default(uuid())
+  to                String
+  message           String?
+  mediaUrl          String?
+  mediaType         String?
+  status            String          @default("sent") // sent, error
+  errorMessage      String?
+  accountId         String
+  account           WhatsAppAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  createdAt         DateTime        @default(now())
+
+  @@map("api_message_logs")
+}
+
 

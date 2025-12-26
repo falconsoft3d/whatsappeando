@@ -48,6 +48,20 @@ export async function POST(request: Request) {
       }
 
       const success = await sendMessage(effectiveSessionId, targetPhone, message, media);
+
+      // Guardar Log API
+      await prisma.apiMessageLog.create({
+        data: {
+          to: targetPhone,
+          message: message || '',
+          mediaUrl: media?.url,
+          mediaType: media?.type,
+          status: success ? 'sent' : 'error',
+          accountId: account.id,
+          errorMessage: success ? null : 'Error en el envío de Baileys'
+        }
+      });
+
       return NextResponse.json({ success, message: success ? 'Enviado' : 'Error en el envío' });
     }
 

@@ -14,11 +14,15 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // Cargar email guardado si existe
+    // Cargar datos guardados si existen
     if (typeof window !== 'undefined') {
       const savedEmail = localStorage.getItem('rememberedEmail');
-      if (savedEmail) {
-        setFormData(prev => ({ ...prev, email: savedEmail }));
+      const savedPassword = localStorage.getItem('rememberedPassword');
+      if (savedEmail || savedPassword) {
+        setFormData({
+          email: savedEmail || '',
+          password: savedPassword || '',
+        });
         setRememberMe(true);
       }
     }
@@ -67,8 +71,10 @@ export default function LoginPage() {
         // Manejar "Recordar"
         if (rememberMe) {
           localStorage.setItem('rememberedEmail', formData.email);
+          localStorage.setItem('rememberedPassword', formData.password);
         } else {
           localStorage.removeItem('rememberedEmail');
+          localStorage.removeItem('rememberedPassword');
         }
       }
 

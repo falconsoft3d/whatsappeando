@@ -5,12 +5,18 @@ import { useEffect, useState } from 'react';
 
 export default function DashboardPage() {
   const router = useRouter();
+  const [user, setUser] = useState<{ name: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalAccounts: 0,
     connectedAccounts: 0,
     apiEnabledAccounts: 0,
     totalMessages: 0
+  });
+  const [steps, setSteps] = useState({
+    accountCreated: false,
+    accountConnected: false,
+    firstMessageSent: false
   });
 
   useEffect(() => {
@@ -21,6 +27,8 @@ export default function DashboardPage() {
         if (!response.ok) {
           throw new Error('No autenticado');
         }
+        const data = await response.json();
+        setUser(data.user);
         setLoading(false);
       } catch (error) {
         console.error('Auth check failed:', error);
@@ -34,6 +42,9 @@ export default function DashboardPage() {
         if (res.ok) {
           const data = await res.json();
           setStats(data.stats);
+          if (data.steps) {
+            setSteps(data.steps);
+          }
         }
       } catch (err) {
         console.error('Error fetching stats:', err);
@@ -41,9 +52,9 @@ export default function DashboardPage() {
     };
 
     checkAuth().then(() => {
-      if (!loading) fetchStats();
+      fetchStats();
     });
-  }, [router, loading]);
+  }, [router]);
 
   if (loading) {
     return (
@@ -60,7 +71,7 @@ export default function DashboardPage() {
           Dashboard
         </h2>
         <p className="mt-2 text-gray-600 dark:text-gray-400">
-          Bienvenido a tu panel de control
+          Hola, <span className="font-bold text-blue-600 dark:text-blue-400">{user?.name}</span>. Bienvenido a tu panel de control.
         </p>
       </div>
 
@@ -157,54 +168,46 @@ export default function DashboardPage() {
         <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
           Primeros Pasos
         </h3>
-        <ul className="space-y-3">
+        <ul className="space-y-4">
           <li className="flex items-start">
-            <svg
-              className="h-6 w-6 text-green-500 mr-2 shrink-0"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <span className="text-gray-600 dark:text-gray-400">
+            <div className={`h-6 w-6 mr-3 shrink-0 rounded-full flex items-center justify-center ${steps.accountCreated ? 'bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400' : 'bg-gray-100 text-gray-400 dark:bg-gray-800'}`}>
+              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <span className={`text-sm ${steps.accountCreated ? 'text-gray-900 dark:text-white font-medium' : 'text-gray-500'}`}>
               Cuenta creada exitosamente
             </span>
           </li>
           <li className="flex items-start">
-            <svg
-              className="h-6 w-6 text-gray-300 mr-2 shrink-0"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <span className="text-gray-600 dark:text-gray-400">
-              Conectar tu primera cuenta de WhatsApp
-            </span>
+            <div className={`h-6 w-6 mr-3 shrink-0 rounded-full flex items-center justify-center ${steps.accountConnected ? 'bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400' : 'bg-gray-100 text-gray-400 dark:bg-gray-800'}`}>
+              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="flex flex-col">
+              <span className={`text-sm ${steps.accountConnected ? 'text-gray-900 dark:text-white font-medium' : 'text-gray-500'}`}>
+                Conectar tu primera cuenta de WhatsApp
+              </span>
+              {!steps.accountConnected && (
+                <a href="/dashboard/accounts" className="text-xs text-blue-600 hover:underline mt-1">Ir a Cuentas →</a>
+              )}
+            </div>
           </li>
           <li className="flex items-start">
-            <svg
-              className="h-6 w-6 text-gray-300 mr-2 shrink-0"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <span className="text-gray-600 dark:text-gray-400">
-              Enviar tu primer mensaje
-            </span>
+            <div className={`h-6 w-6 mr-3 shrink-0 rounded-full flex items-center justify-center ${steps.firstMessageSent ? 'bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400' : 'bg-gray-100 text-gray-400 dark:bg-gray-800'}`}>
+              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="flex flex-col">
+              <span className={`text-sm ${steps.firstMessageSent ? 'text-gray-900 dark:text-white font-medium' : 'text-gray-500'}`}>
+                Enviar tu primer mensaje (vía API)
+              </span>
+              {!steps.firstMessageSent && (
+                <a href="/dashboard/api-test" className="text-xs text-blue-600 hover:underline mt-1">Ir a Prueba API →</a>
+              )}
+            </div>
           </li>
         </ul>
       </div>
