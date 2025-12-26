@@ -45,3 +45,5 @@ dev.db
 dev.db-journal
 *.db-journal
 auth_sessions/
+# uploads
+/public/uploads
