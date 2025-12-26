@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/whatsapp';
+import { prisma } from '@/lib/prisma';
 
 export async function GET(
   request: Request,
@@ -18,6 +19,25 @@ export async function GET(
     const session = getSession(sessionId);
 
     if (!session) {
+      // Fallback: Buscar en la base de datos si la sesión está marcada como conectada
+      try {
+        const account = await prisma.whatsAppAccount.findFirst({
+          where: { sessionId: sessionId }
+        });
+
+        if (account && account.status === 'connected') {
+          return NextResponse.json({
+            sessionId: account.sessionId,
+            status: 'connected',
+            phoneNumber: account.phoneNumber,
+            error: null,
+            retryCount: 0,
+          }, { status: 200 });
+        }
+      } catch (dbErr) {
+        console.error('Error checking DB fallback:', dbErr);
+      }
+
       return NextResponse.json(
         {
           status: 'searching',

@@ -361,6 +361,31 @@ export async function generateQR(sessionId: string): Promise<string> {
             sessions.set(sessionId, currentSession);
             console.log('💾 Sesión actualizada a connected (inicial):', sessionId);
 
+            // ACTUALIZAR EN BASE DE DATOS
+            try {
+              // El sessionId tiene el formato accountId-timestamp
+              const accountId = sessionId.split('-').length >= 5
+                ? sessionId.split('-').slice(0, 5).join('-') // UUID format
+                : sessionId.split('-')[0];
+
+              await prisma.whatsAppAccount.updateMany({
+                where: {
+                  OR: [
+                    { id: accountId },
+                    { sessionId: sessionId }
+                  ]
+                },
+                data: {
+                  status: 'connected',
+                  phoneNumber: phoneNumber || '',
+                  sessionId: sessionId
+                }
+              });
+              console.log('✅ Base de datos actualizada con estado connected para:', accountId);
+            } catch (dbErr) {
+              console.warn('⚠️ No se pudo actualizar el estado en BD:', dbErr);
+            }
+
             // Cargar contactos y chats después de conectar
             setTimeout(() => {
               syncContactsAndChats(sessionId);
@@ -509,6 +534,30 @@ export async function reconnectSession(sessionId: string): Promise<void> {
           currentSession.store = store;
           sessions.set(sessionId, currentSession);
           console.log('💾 Sesión actualizada a connected:', sessionId);
+
+          // ACTUALIZAR EN BASE DE DATOS
+          try {
+            const accountId = sessionId.split('-').length >= 5
+              ? sessionId.split('-').slice(0, 5).join('-')
+              : sessionId.split('-')[0];
+
+            await prisma.whatsAppAccount.updateMany({
+              where: {
+                OR: [
+                  { id: accountId },
+                  { sessionId: sessionId }
+                ]
+              },
+              data: {
+                status: 'connected',
+                phoneNumber: phoneNumber || '',
+                sessionId: sessionId
+              }
+            });
+            console.log('✅ Base de datos actualizada tras reconexión:', accountId);
+          } catch (dbErr) {
+            console.warn('⚠️ No se pudo actualizar el estado en BD tras reconexión:', dbErr);
+          }
 
           // Cargar contactos y chats después de reconectar
           setTimeout(() => {
