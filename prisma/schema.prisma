@@ -1,0 +1,44 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id               String    @id @default(uuid())
+  email            String    @unique
+  name             String
+  password         String
+  resetToken       String?   @unique
+  resetTokenExpiry DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  
+  whatsappAccounts WhatsAppAccount[]
+
+  @@map("users")
+}
+
+model WhatsAppAccount {
+  id          String   @id @default(uuid())
+  name        String
+  phoneNumber String
+  description String?
+  status      String   @default("disconnected") // connected, disconnected
+  sessionId   String?  @unique
+  webhookUrl  String?
+  apiToken    String?
+  apiEnabled  Boolean  @default(false)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("whatsapp_accounts")
+}
+
